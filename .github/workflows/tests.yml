@@ -1,0 +1,35 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Fortran compiler (reference LAPACK) and clang (audit)
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update -q && sudo apt-get install -y -q gfortran clang
+            echo "FC=gfortran" >> "$GITHUB_ENV"
+          else
+            FCBIN=$(ls /opt/homebrew/bin/gfortran-* 2>/dev/null | sort -V | tail -1)
+            if [ -z "$FCBIN" ]; then brew install gcc; FCBIN=$(ls /opt/homebrew/bin/gfortran-* | sort -V | tail -1); fi
+            echo "FC=$FCBIN" >> "$GITHUB_ENV"
+          fi
+      - name: Install
+        run: pip install -e ".[test]"
+      - name: Tests
+        run: pytest -q
+      - name: Audit
+        run: python -m pbit.audit

@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pbit"
+version = "0.1.0"
+description = "p-bit floating point: a correctly rounded array type for any significand width, and reference LAPACK least squares ported to it"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE", "third_party/lapack-3.12.1/LICENSE"]
+authors = [{ name = "Sam Layton" }]
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "mpmath>=1.3"]
+keywords = ["floating point", "low precision", "emulation", "least squares", "LAPACK", "numerical analysis", "mixed precision"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7", "gmpy2>=2.3"]
+torch = ["torch>=2.0"]
+
+[project.urls]
+Repository = "https://github.com/samlayton99/pbit"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pbit = ["csrc/*.c", "csrc/*.h"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
