@@ -1,5 +1,7 @@
 # pbit
 
+[![tests](https://github.com/samlayton99/pbit/actions/workflows/tests.yml/badge.svg)](https://github.com/samlayton99/pbit/actions/workflows/tests.yml)
+
 **p-bit floating point for Python: a correctly rounded array type for any significand width from 2 to 53 bits, and reference LAPACK least squares ported to it.**
 
 Pick a precision $p$. pbit then does three things:
@@ -37,7 +39,7 @@ Most "low precision" experiments round the inputs and outputs but run the core o
 pip install git+https://github.com/samlayton99/pbit
 ```
 
-Requires Python 3.10+, numpy and mpmath, and a C compiler (`cc`, or `$CC`). The C kernels compile on first use, in a few seconds, into `~/.cache/pbit` (or `$PBIT_CACHE_DIR`). Developed on macOS (arm64, clang).
+Requires Python 3.10+, numpy and mpmath, and a C compiler (`cc`, or `$CC`). The C kernels compile on first use, in a few seconds, into `~/.cache/pbit` (or `$PBIT_CACHE_DIR`). Tested on macOS (arm64, clang) and Linux (x86-64, gcc), Python 3.10 and 3.12; the reference-LAPACK and audit checks run in CI on both.
 
 ## Formats
 
