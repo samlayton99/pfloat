@@ -46,7 +46,7 @@ static void lp_copy(int n, const T *x, int incx, T *y, int incy) {
 typedef struct { int m, n; T alpha; const T *a; int lda; const T *x; int incx, kx; T *y; int incy, ky; } GemvCtx;
 
 static void gemv_t_part(void *p, long lo, long hi) {
-    GemvCtx *c = p;
+    GemvCtx *c = (GemvCtx *)p;
     for (long j = lo + 1; j <= hi; ++j) {
         T temp = FROMD(0.0);
         int ix = c->kx;
@@ -60,7 +60,7 @@ static void gemv_t_part(void *p, long lo, long hi) {
 }
 
 static void gemv_n_part(void *p, long lo, long hi) {
-    GemvCtx *c = p;
+    GemvCtx *c = (GemvCtx *)p;
     int jx = c->kx;
     for (int j = 1; j <= c->n; ++j) {
         T temp = MUL(c->alpha, c->x[jx - 1]);
@@ -97,7 +97,7 @@ static void lp_gemv(char trans, int m, int n, T alpha, const T *a, int lda, cons
 typedef struct { int m, k; T alpha; const T *a; int lda; const T *b; int ldb; T *c; int ldc; } GemmCtx;
 
 static void gemm_tn_part(void *p, long lo, long hi) {
-    GemmCtx *g = p;
+    GemmCtx *g = (GemmCtx *)p;
     const T zero = FROMD(0.0);
     for (long j = lo + 1; j <= hi; ++j)
         for (int i = 1; i <= g->m; ++i) {
@@ -268,7 +268,7 @@ static void lp_larfg(const Consts *k, int n, T *alpha, T *x, int incx, T *tau) {
 typedef struct { int lastv, lastc, incv, ldc; const T *v; T tau; T *c; T *work; } LarfCtx;
 
 static void larf_left_part(void *p, long lo, long hi) {
-    LarfCtx *r = p;
+    LarfCtx *r = (LarfCtx *)p;
     const T zero = FROMD(0.0), one = FROMD(1.0), ntau = NEG(r->tau);
     for (long j = lo + 1; j <= hi; ++j) {
         T *cj = r->c + (size_t)(j - 1) * r->ldc;
@@ -297,7 +297,7 @@ static void larf_left_part(void *p, long lo, long hi) {
 }
 
 static void larf_right_part(void *p, long lo, long hi) {
-    LarfCtx *r = p;
+    LarfCtx *r = (LarfCtx *)p;
     const T zero = FROMD(0.0), one = FROMD(1.0), ntau = NEG(r->tau);
     T *w = r->work;
     /* DGEMV('N', LASTC, LASTV-1, ONE, C(1,2), LDC, V(1+INCV), INCV, ZERO, WORK, 1) */
@@ -609,7 +609,7 @@ static void lp_lasv2(const Consts *k, T f, T g, T h, T *ssmin, T *ssmax, T *snr,
 typedef struct { char direct; int m; const T *c, *s; T *a; int lda; } LasrCtx;
 
 static void lasr_part(void *p, long lo, long hi) {
-    LasrCtx *r = p;
+    LasrCtx *r = (LasrCtx *)p;
     const T zero = FROMD(0.0), one = FROMD(1.0);
     int j0 = r->direct == 'F' ? 1 : r->m - 1, j1 = r->direct == 'F' ? r->m - 1 : 1;
     int dj = r->direct == 'F' ? 1 : -1;
@@ -1075,10 +1075,10 @@ static int lp_gelss(const Consts *k, int m, int n, int nrhs, T *a, T *b, T *s, i
     }
 
     size_t big = (size_t)(m > n ? m : n);
-    T *tau = malloc(sizeof(T) * minmn), *e = malloc(sizeof(T) * minmn);
-    T *tauq = malloc(sizeof(T) * minmn), *taup = malloc(sizeof(T) * minmn);
-    T *work = malloc(sizeof(T) * (4 * big + (size_t)ldb * nrhs + 8));
-    T *lcopy = NULL, *bq = malloc(sizeof(T) * (size_t)ldb * nrhs);
+    T *tau = (T *)malloc(sizeof(T) * minmn), *e = (T *)malloc(sizeof(T) * minmn);
+    T *tauq = (T *)malloc(sizeof(T) * minmn), *taup = (T *)malloc(sizeof(T) * minmn);
+    T *work = (T *)malloc(sizeof(T) * (4 * big + (size_t)ldb * nrhs + 8));
+    T *lcopy = NULL, *bq = (T *)malloc(sizeof(T) * (size_t)ldb * nrhs);
     int info = 0, path;
     if (!tau || !e || !tauq || !taup || !work || !bq) { info = -4; goto done; }
 
@@ -1100,7 +1100,7 @@ static int lp_gelss(const Consts *k, int m, int n, int nrhs, T *a, T *b, T *s, i
     } else if (n >= mnthr && lwork >= 4L * m + (long)m * m + max4(m, 2L * m - 4, nrhs, (long)n - 3L * m)) {
         path = 2;
         lp_gelq2(k, m, n, a, lda, tau, work);                             /* DGELQF */
-        lcopy = malloc(sizeof(T) * (size_t)m * m);
+        lcopy = (T *)malloc(sizeof(T) * (size_t)m * m);
         if (!lcopy) { info = -4; goto done; }
         for (int j = 1; j <= m; ++j)                                      /* DLACPY('L'), DLASET('U') */
             for (int i = 1; i <= m; ++i) lcopy[IX(i, j, m)] = i >= j ? a[IX(i, j, lda)] : zero;

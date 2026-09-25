@@ -1,9 +1,9 @@
 """Static no-leakage audit of the emulator build.
 
-clang parses csrc/emul.c (which includes kernels.h and lapack_gelss.h, macros expanded) and this
-walks the syntax tree of every function defined in those files, every branch included. Outside
-the rounding layer (the functions implementing the correctly rounded +, -, *, /, sqrt) it
-reports:
+clang parses csrc/emul.c (which includes kernels.h, lapack_gelss.h and lapack_solve.h, macros
+expanded) and this walks the syntax tree of every function defined in those files, every branch
+included. Outside the rounding layer (the functions implementing the correctly rounded +, -, *,
+/, sqrt) it reports:
 
 - floating-point +, -, *, / (including compound assignments),
 - calls to functions that are neither defined in these files nor exact (fabs, copysign,
@@ -13,7 +13,7 @@ reports:
 - floating literals not passed through FROMD (which checks that they are format values).
 
 Comparisons and unary minus are exact and allowed. ``audit()`` returns the findings; the test
-suite requires them to equal ``ALLOWED`` exactly. Run ``python -m pbit.audit`` to print them.
+suite requires them to equal ``ALLOWED`` exactly. Run ``python -m pfloat.audit`` to print them.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from pathlib import Path
 import subprocess
 
 CSRC = Path(__file__).resolve().parent / "csrc"
-SOURCES = {"emul.c", "kernels.h", "lapack_gelss.h"}
+SOURCES = {"emul.c", "kernels.h", "lapack_gelss.h", "lapack_solve.h"}
 ROUNDING_LAYER = {"to_bits", "from_bits", "sgn", "shift_of", "at_midpoint", "rnd", "round_fast", "add_slow",
                   "mul_slow", "div_slow", "sqrt_slow", "e_add", "e_sub", "e_mul", "e_div", "e_sqrt", "e_fromd",
                   "e_i2t", "e_setfmt", "flush_counters", "pb_round", "pb_events"}

@@ -3,14 +3,14 @@ emulator and native binary32/binary64."""
 import numpy as np
 import pytest
 
-import pbit
-from pbit import _lib
+import pfloat
+from pfloat import _lib
 
 
 def _tanh(fmt, z, kind="emul"):
     z = np.ascontiguousarray(z, dtype=np.float64)
     out = np.empty_like(z)
-    _lib.library(kind).pb_unary(_lib.ptr(fmt.constants()), 1, z.size, _lib.ptr(z), _lib.ptr(out))
+    _lib.library(kind).pb_unary(_lib.ptr(fmt.constants()), _lib.ptr(fmt.constants()), 1, z.size, _lib.ptr(z), _lib.ptr(out))
     return out
 
 
@@ -31,27 +31,27 @@ def _max_ulp_error(fmt, z, t):
 
 @pytest.mark.parametrize("p", range(8, 54))
 def test_within_three_ulp(p):
-    fmt = pbit.Format(p)
+    fmt = pfloat.Format(p)
     rng = np.random.default_rng(1000 + p)
-    z = np.unique(pbit.round_to(np.concatenate([rng.uniform(-12, 12, 500), np.exp2(rng.uniform(-30, 3, 200)),
+    z = np.unique(pfloat.round_to(np.concatenate([rng.uniform(-12, 12, 500), np.exp2(rng.uniform(-30, 3, 200)),
                                                 [0.0, 1e-300]]), fmt))
     assert _max_ulp_error(fmt, z, _tanh(fmt, z)) <= 3.0
 
 
-@pytest.mark.parametrize("fmt", [pbit.FP16, pbit.BF16, pbit.FP32], ids=repr)
+@pytest.mark.parametrize("fmt", [pfloat.FP16, pfloat.BF16, pfloat.FP32], ids=repr)
 def test_presets(fmt):
     rng = np.random.default_rng(fmt.p)
-    z = np.unique(pbit.round_to(rng.uniform(-8, 8, 800), fmt))
+    z = np.unique(pfloat.round_to(rng.uniform(-8, 8, 800), fmt))
     assert _max_ulp_error(fmt, z, _tanh(fmt, z)) <= 3.0
 
 
-@pytest.mark.parametrize("fmt,kind", [(pbit.FP32, "f32"), (pbit.FP64, "f64")])
+@pytest.mark.parametrize("fmt,kind", [(pfloat.FP32, "f32"), (pfloat.FP64, "f64")])
 def test_native_equals_emulator(fmt, kind):
-    z = pbit.round_to(np.random.default_rng(0).uniform(-20, 20, 20000), fmt)
+    z = pfloat.round_to(np.random.default_rng(0).uniform(-20, 20, 20000), fmt)
     np.testing.assert_array_equal(_tanh(fmt, z, kind), _tanh(fmt, z))
 
 
 def test_specials():
-    fmt = pbit.Format(20)
+    fmt = pfloat.Format(20)
     out = _tanh(fmt, np.array([np.inf, -np.inf, np.nan, -0.0]))
     assert out[0] == 1 and out[1] == -1 and np.isnan(out[2]) and out[3] == 0

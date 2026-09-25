@@ -1,4 +1,4 @@
-/* The pbit kernels on native hardware: -DPB_TYPE=1 binary64 (double), -DPB_TYPE=2 binary32
+/* The pfloat kernels on native hardware: -DPB_TYPE=1 binary64 (double), -DPB_TYPE=2 binary32
  * (float). Built without fused multiply-add or auto-vectorization; each operation is a
  * separate function returning T, so every result is rounded to T. Bit-identical to the emulator
  * in the same format (checked in the tests); used as a fast path for exactly those formats.

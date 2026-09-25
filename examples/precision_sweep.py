@@ -2,7 +2,7 @@
 
 Fits f(x) = exp(sin(3x)) with 40 Chebyshev polynomials on 400 points, with every step at p bits:
 the data are rounded to p bits, the Chebyshev features are built by the three-term recurrence in
-p-bit arithmetic, the solve is pbit.lstsq (DGELSS at p bits), and the fit is evaluated at p bits.
+p-bit arithmetic, the solve is pfloat.lstsq (DGELSS at p bits), and the fit is evaluated at p bits.
 The error is measured in binary64 against the exact function.
 
     python examples/precision_sweep.py       # prints a table; saves precision_sweep.png if matplotlib is installed
@@ -11,14 +11,14 @@ from pathlib import Path
 
 import numpy as np
 
-import pbit
+import pfloat
 
 
-def chebyshev_features(x: pbit.PArray, degree: int) -> pbit.PArray:
-    cols = [pbit.ones(x.shape, x.fmt), x]
+def chebyshev_features(x: pfloat.PArray, degree: int) -> pfloat.PArray:
+    cols = [pfloat.ones(x.shape, x.fmt), x]
     for _ in range(degree - 1):
         cols.append(2 * x * cols[-1] - cols[-2])      # T_{k+1} = 2 x T_k - T_{k-1}, at p bits
-    return pbit.stack(cols, axis=1)
+    return pfloat.stack(cols, axis=1)
 
 
 def main():
@@ -26,10 +26,10 @@ def main():
     x_fit, x_eval = np.linspace(-1, 1, 400), np.linspace(-1, 1, 2001)
     rows = []
     for p in range(8, 54):
-        fmt = pbit.Format(p)
-        A = chebyshev_features(pbit.array(x_fit, fmt), 39)
-        coef, _, rank, _ = pbit.lstsq(A, pbit.array(f(x_fit), fmt))
-        fit = chebyshev_features(pbit.array(x_eval, fmt), 39) @ coef
+        fmt = pfloat.Format(p)
+        A = chebyshev_features(pfloat.array(x_fit, fmt), 39)
+        coef, _, rank, _ = pfloat.lstsq(A, pfloat.array(f(x_fit), fmt))
+        fit = chebyshev_features(pfloat.array(x_eval, fmt), 39) @ coef
         err = np.max(np.abs(fit.to_numpy() - f(x_eval)))
         rows.append((p, err, rank))
         print(f"p = {p:2d}   max error = {err:.3e}   error * 2^p = {err * 2.0 ** p:8.1f}   rank = {rank}")

@@ -17,10 +17,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - name: Fortran compiler (reference LAPACK) and clang (audit)
+      - name: Fortran compiler (reference LAPACK), clang (audit), MPFR (formats above 53 bits)
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo apt-get update -q && sudo apt-get install -y -q gfortran clang
+            sudo apt-get update -q && sudo apt-get install -y -q gfortran clang g++ libmpfr-dev
             echo "FC=gfortran" >> "$GITHUB_ENV"
           else
             FCBIN=$(ls /opt/homebrew/bin/gfortran-* 2>/dev/null | sort -V | tail -1)
@@ -32,4 +32,4 @@ jobs:
       - name: Tests
         run: pytest -q
       - name: Audit
-        run: python -m pbit.audit
+        run: python -m pfloat.audit

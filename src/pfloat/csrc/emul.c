@@ -1,4 +1,4 @@
-/* pbit emulator: binary floating-point arithmetic with a p-bit significand.
+/* pfloat emulator: binary floating-point arithmetic with a p-bit significand.
  *
  * A format (p, emin, emax) has a p-bit significand (2 <= p <= 53), normal exponents
  * emin..emax, gradual underflow, infinities and NaNs (IEEE 754 semantics). Every +, -, *, /, sqrt
@@ -176,7 +176,8 @@ HOT double e_sqrt(double a) {
     return round_fast(s, &r) ? r : sqrt_slow(a, s);
 }
 static inline double e_fromd(double x) {
-    if (x == x && rnd(x, 0) != x) ++g_notfmt;
+    double r;
+    if (round_fast(x, &r) ? r != x : (x == x && rnd(x, 0) != x)) ++g_notfmt;
     return x;
 }
 static inline double e_i2t(long n) { return rnd((double)n, 0); }

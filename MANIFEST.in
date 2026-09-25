@@ -1,0 +1,7 @@
+include README.md LICENSE
+recursive-include src/pfloat/csrc *.c *.cpp *.h
+recursive-include third_party *
+recursive-include tests *.py
+recursive-include docs *.md
+recursive-include examples *.py *.png
+recursive-include benchmarks *.py

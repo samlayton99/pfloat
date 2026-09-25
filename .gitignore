@@ -7,3 +7,4 @@ dist/
 .venv/
 *.so
 .DS_Store
+_kernels.sha256

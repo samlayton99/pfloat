@@ -1,9 +1,10 @@
-"""Netlib reference LAPACK 3.12.1 SGELSS / DGELSS, built from source, to check the port against.
+"""Netlib reference LAPACK 3.12.1, built from source, to check the ports against: xGELSS, xGESV
+(xGETRF, xGETRS), xPOTRF, xPOTRS and xNRM2 in single and double precision.
 
-The Fortran sources DGELSS and SGELSS reach are vendored in ``third_party/lapack-3.12.1`` of the
-repository (with LAPACK's license); ``$PBIT_LAPACK_SRC`` can point elsewhere. They are compiled
+The Fortran sources these reach are vendored in ``third_party/lapack-3.12.1`` of the
+repository (with LAPACK's license); ``$PFLOAT_LAPACK_SRC`` can point elsewhere. They are compiled
 with gfortran (``$FC``) and ``-ffp-contract=off`` (no fused multiply-add). One file is changed:
-ILAENV returns block size 1, the unblocked configuration the port implements.
+ILAENV returns block size 1, the unblocked configuration the ports implement.
 """
 from __future__ import annotations
 
@@ -21,12 +22,13 @@ from .._lib import cache_dir
 
 FFLAGS = ["-O2", "-ffp-contract=off", "-fPIC"]
 FC = os.environ.get("FC", "gfortran")
+ROOTS = [f"{t}{r}" for t in "ds" for r in ("gelss", "gesv", "getrf", "getrs", "potrf", "potrs", "nrm2")]
 _LIB = None
 
 
 def source_dir() -> Path:
-    if os.environ.get("PBIT_LAPACK_SRC"):
-        return Path(os.environ["PBIT_LAPACK_SRC"])
+    if os.environ.get("PFLOAT_LAPACK_SRC"):
+        return Path(os.environ["PFLOAT_LAPACK_SRC"])
     return Path(__file__).resolve().parents[3] / "third_party" / "lapack-3.12.1"
 
 
@@ -57,7 +59,7 @@ def _find(src: Path, symbol: str) -> Path | None:
 
 
 def build() -> Path:
-    """Compile the SGELSS/DGELSS closure into a shared library (cached) and return its path."""
+    """Compile the closure of ROOTS into a shared library (cached) and return its path."""
     src = source_dir()
     if not (src / "SRC" / "dgelss.f").exists():
         raise FileNotFoundError(f"reference LAPACK sources not found in {src}")
@@ -82,7 +84,7 @@ def build() -> Path:
     patched = build_dir / "ilaenv.f"
     patched.write_text(text.replace(anchor, "      IF( ISPEC.EQ.1 ) THEN\n         ILAENV = 1\n"
                                             "         RETURN\n      END IF\n" + anchor))
-    queue, seen = ["dgelss", "sgelss"], set()
+    queue, seen = list(ROOTS), set()
     while queue:
         sym = queue.pop()
         if sym in seen:
@@ -137,3 +139,81 @@ def gelss(a, b, rcond: float, dtype) -> dict:
     x = bb[:n].astype(np.float64)
     return {"x": x[:, 0] if b.ndim == 1 else x, "sigma": s[:min(m, n)].astype(np.float64),
             "rank": rank.value, "info": info.value}
+
+
+def _typed(dtype):
+    double = np.dtype(dtype) == np.float64
+    return ("d" if double else "s"), (ctypes.c_double if double else ctypes.c_float)
+
+
+def _ptr(arr, ct):
+    return arr.ctypes.data_as(ctypes.POINTER(ct))
+
+
+def _ints(*vals):
+    return [ctypes.byref(ctypes.c_int(v)) for v in vals]
+
+
+def getrf(a, dtype) -> dict:
+    """Reference xGETRF (square or not). Returns lu (float64), ipiv (1-based), info."""
+    t, ct = _typed(dtype)
+    a = np.asarray(a, dtype=dtype).copy(order="F")
+    m, n = a.shape
+    ipiv = np.zeros(max(min(m, n), 1), dtype=np.intc)
+    info = ctypes.c_int(0)
+    getattr(_load(), f"{t}getrf_")(*_ints(m, n), _ptr(a, ct), *_ints(max(m, 1)),
+                                   ipiv.ctypes.data_as(ctypes.POINTER(ctypes.c_int)), ctypes.byref(info))
+    return {"lu": a.astype(np.float64), "ipiv": ipiv[:min(m, n)].copy(), "info": info.value}
+
+
+def gesv(a, b, dtype) -> dict:
+    """Reference xGESV. a: (N, N); b: (N,) or (N, K). Returns x, lu (float64), ipiv, info."""
+    t, ct = _typed(dtype)
+    a = np.asarray(a, dtype=dtype).copy(order="F")
+    n = a.shape[0]
+    b = np.asarray(b, dtype=dtype)
+    bb = np.asfortranarray(b.reshape(n, -1)).copy(order="F")
+    ipiv = np.zeros(max(n, 1), dtype=np.intc)
+    info = ctypes.c_int(0)
+    getattr(_load(), f"{t}gesv_")(*_ints(n, bb.shape[1]), _ptr(a, ct), *_ints(max(n, 1)),
+                                  ipiv.ctypes.data_as(ctypes.POINTER(ctypes.c_int)), _ptr(bb, ct),
+                                  *_ints(max(n, 1)), ctypes.byref(info))
+    x = bb.astype(np.float64)
+    return {"x": x[:, 0] if b.ndim == 1 else x, "lu": a.astype(np.float64), "ipiv": ipiv[:n].copy(),
+            "info": info.value}
+
+
+def potrf(a, uplo: str, dtype) -> dict:
+    """Reference xPOTRF: the whole array as it leaves it (float64), and info."""
+    t, ct = _typed(dtype)
+    a = np.asarray(a, dtype=dtype).copy(order="F")
+    n = a.shape[0]
+    info = ctypes.c_int(0)
+    getattr(_load(), f"{t}potrf_")(ctypes.c_char_p(uplo.encode()), *_ints(n), _ptr(a, ct), *_ints(max(n, 1)),
+                                   ctypes.byref(info), ctypes.c_size_t(1))
+    return {"c": a.astype(np.float64), "info": info.value}
+
+
+def potrs(c, b, uplo: str, dtype) -> np.ndarray:
+    """Reference xPOTRS from the factor array c."""
+    t, ct = _typed(dtype)
+    c = np.asarray(c, dtype=dtype).copy(order="F")
+    n = c.shape[0]
+    b = np.asarray(b, dtype=dtype)
+    bb = np.asfortranarray(b.reshape(n, -1)).copy(order="F")
+    info = ctypes.c_int(0)
+    getattr(_load(), f"{t}potrs_")(ctypes.c_char_p(uplo.encode()), *_ints(n, bb.shape[1]), _ptr(c, ct),
+                                   *_ints(max(n, 1)), _ptr(bb, ct), *_ints(max(n, 1)), ctypes.byref(info),
+                                   ctypes.c_size_t(1))
+    assert info.value == 0
+    x = bb.astype(np.float64)
+    return x[:, 0] if b.ndim == 1 else x
+
+
+def nrm2(x, dtype) -> float:
+    """Reference xNRM2 of a vector."""
+    t, ct = _typed(dtype)
+    x = np.ascontiguousarray(x, dtype=dtype)
+    fn = getattr(_load(), f"{t}nrm2_")
+    fn.restype = ct
+    return float(fn(*_ints(x.size), _ptr(x, ct), *_ints(1)))
